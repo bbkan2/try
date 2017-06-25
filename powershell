@@ -1,0 +1,1 @@
+for($i=0; $i -lt $xxx.cqresponse.fields.field.Length; $i++){if($xxx.cqresponse.fields.field[$i].fieldname.$text -eq "AdditionalReceipients"){$xxx.cqresponse.fields.field[$i].value.div.InnerText}}
