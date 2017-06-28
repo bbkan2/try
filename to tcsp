@@ -1,0 +1,23 @@
+[xml]$xxx = Get-Content D:\Temp\PAKCO.xml$text="`#text"$xxx.cqresponse.fields.field[18].fieldname.$text$xxx.cqresponse.fields.field[18].value.div.InnerText
+for($i=0; $i -lt $xxx.cqresponse.fields.field.Length; $i++){if($xxx.cqresponse.fields.field[$i].fieldname.$text -eq "AdditionalReceipients"){$xxx.cqresponse.fields.field[$i].value.div.InnerText}}
+
+$a = Import-Csv C:\Users\pakcophkan\Downloads\idep_pakcophkan.csv | Where-Object {$_."Tick to Update TCSP" -eq "Yes"} | % {$_.Id}
+$a = Import-Csv C:\Users\pakcophkan\Downloads\idep_pakcophkan.csv | Where-Object {$_."Tick to Update TCSP" -eq "Yes"}
+$ie = New-Object -com InternetExplorer.Application$ie.visible=$true$ie.navigate("http://mtbtdev01.chbank.com/mantisbt_test/login.php?username=idep_pakcophkan&password=&return=/mantisbt_test/csv_export.php")while($ie.Busy){Sleep 1} $obj = new-object -com WScript.Shell$obj.AppActivate('Internet Explorer')$obj.SendKeys('s')
+$ie.Quit()
+Invoke-WebRequest -Uri "http://mtbtdev01.chbank.com/mantisbt_test/login.php?username=idep_pakcophkan&password=&return=/mantisbt_test/csv_export.php" -Outfile "C:\Users\pakcophkan\Downloads\test.csv"(Invoke-webrequest -URI "http://mtbtdev01.chbank.com/mantisbt_test/login.php?username=idep_pakcophkan&password=&return=/mantisbt_test/csv_export.php").Contentwget "http://mtbtdev01.chbank.com/mantisbt_test/login.php?username=idep_pakcophkan&password=&return=/mantisbt_test/csv_export.php" -Outfile "C:\Users\pakcophkan\Downloads\test.csv"
+
+wsproxy 8080
+WebProxy = New-Object System.Net.WebProxy("http://wsproxy.com:1111",$true)New-Object System.Net.WebProxy("http://wsproxy:8080",$true)
+$downloader3 = New-Object net.webclient$downloader3.proxy.Credentials = New-Object System.Net.NetworkCredential("pakcophkan", "chb123")$downloader3.DownloadFile("http://mtbtdev01.chbank.com/mantisbt_test/login.php?username=idep_pakcophkan&password=&return=/mantisbt_test/csv_export.php", "C:\Users\pakcophkan\Downloads\test.csv")
+http://mtbtdev01.chbank.com/mantisbt_test/csv_export.php
+$Username="pakcophkan"$Password="chb123"$WebProxy = New-Object System.Net.WebProxy("wsproxy:8080",$true)$url="http://mtbtdev01.chbank.com/mantisbt_test/login.php?username=idep_pakcophkan&password=&return=/mantisbt_test/csv_export.php"
+$WebClient = New-Object net.webclient
+$WebClient.Proxy=$WebProxy$WebClient.proxy.Credentials = New-Object System.Net.NetworkCredential($Username, $Password)$path="C:\Users\pakcophkan\Downloads\test.csv"$WebClient.DownloadFile($url, $path)
+
+$mantis = New-WebServiceProxy -Uri "http://mtbtdev01.chbank.com/mantisbt_test/api/soap/mantisconnect.php?wsdl" -Namespace WebServiceProxy$issue = $mantis.mc_project_get_issues("idep_pakcophkan","","0","","")$issue[3]
+$IE=new-object -com internetexplorer.application$IE.navigate2("http://mtbtdev01.chbank.com/mantisbt_test/login.php?username=idep_pakcophkan&password=&return=/mantisbt_test/csv_export.php")$IE.visible=$true
+for($i=0; $i -lt $iss.Length; $i++){$iss[$i].id}
+
+
+https://tcsp.temenos.com/cqweb/restapi/7.0.0/PACS/RECORD?format=HTML&recordType=Ticket&fieldsXml=<Field><Name>Contact</Name><Value><![CDATA[Pakco%20Kan]]></Value></Field><Field><Name>CustomerCode</Name><Value><![CDATA[CHBL]]></Value></Field><Field><Name>FullDescription</Name><Value><![CDATA[This%20is%20a%20test.%20Please%20remove.%20Thanks.]]></Value></Field><Field><Name>Phone</Name><Value><![CDATA[%2B852%203768%209027]]></Value></Field><Field><Name>ShortDescription</Name><Value><![CDATA[Test%20Ticket]]></Value></Field><Field><Name>SystemStatus</Name><Value><![CDATA[TEST]]></Value></Field>&autoSave=true&loginId=pakcophkan&password=Bk318320!&noframes=true
