@@ -1,0 +1,22 @@
+1. Get full list of issues from Mantis
+http://mtbtdev01.chbank.com/mantisbt_test/login.php?username=idep_pakcophkan&password=&return=/mantisbt_test/csv_export.php
+-------------------------------------------------------------------------------3. Create/update ticket in TCSP
+Create TCSP Ticket:1. Call REST API to create a new ticket:https://tcsp.temenos.com/cqweb/restapi/7.0.0/PACS/RECORD?format=HTML&recordType=Ticket&fieldsXml=<Field><Name>Contact</Name><Value><![CDATA[Ricky%20Leung]]></Value></Field><Field><Name>CustomerCode</Name><Value><![CDATA[CHBL]]></Value></Field><Field><Name>FullDescription</Name><Value><![CDATA[This%20is%20a%20test.%20Please%20remove.%20Thanks.]]></Value></Field><Field><Name>Phone</Name><Value><![CDATA[%2B852%203768%209027]]></Value></Field><Field><Name>ShortDescription</Name><Value><![CDATA[Test%20Ticket]]></Value></Field><Field><Name>SystemStatus</Name><Value><![CDATA[TEST]]></Value></Field>&autoSave=true&loginId=xxx&password=xxx&noframes=true2. Open the following URL to obtain a list of new tickets, and match short description to get the ticket number:https://tcsp.temenos.com/Support/Viewticket.aspx?SID=PendingClientConfirmation
+Update TCSP Ticket:1. Call REST API to update an existing ticket:https://tcsp.temenos.com/cqweb/restapi/7.0.0/PACS/RECORD/PACS00601930?format=HTML&recordType=Ticket&action=Modify&fieldsXml=<Field><Name>ShortDescription</Name><Value><![CDATA[This%20is%20a%20test%20only]]></Value></Field>&autoSave=true&loginId=xxx&password=xxx&noframes=true
+-------------------------------------------------------------------------------4. For new TCSP tickets, update the TCSP ticket ID in Mantis and turn off "Update TCSP" indicator, etc.
+$mantis = New-WebServiceProxy -Uri "http://mtbtdev01.chbank.com/mantisbt_test/api/soap/mantisconnect.php?wsdl" -Namespace WebServiceProxy
+$mcversion = $mantis.mc_version()
+Write-Output $mcversion
+$id = $mantis.mc_issue_get_id_from_summary("idep_pakcophkan","","test. please delete2")
+Write-Output $id
+$issue = $mantis.mc_issue_get("idep_pakcophkan","",$id)
+Write-Output $issueWrite-Output $issue.custom_fields[2].value
+$issue.custom_fields[2].value = "new value"
+$result = $mantis.mc_issue_update("idep_pakcophkan","",$id,$issue)
+Write-Output $result
+----------------------------------------------------------------------------------3. Extract ticket information from TCSP
+$username = "pakcophkan" $password = "Bk318320!"$ie = New-Object -com InternetExplorer.Application#$ie.visible=$true$ie.navigate("https://tcsp.temenos.com")while($ie.ReadyState -ne 4) {start-sleep -m 100}$ie.document.getElementById("username").value = "$username"$ie.document.getElementById("password").value = "$password"$ie.document.getElementById("logonForm").submit()start-sleep 30$ie.navigate("https://tcsp.temenos.com/SitePages/TicketingSystem.aspx")start-sleep 30$ie.navigate("https://tcsp.temenos.com/cqweb/restapi/7.0.0/PACS/RECORD/PACS00597940?format=XML&recordType=Ticket&loginId=xxx&password=xxx&noframes=true")start-sleep 20$ie.Document.documentElement.outerHTML | Out-File -FilePath D:\Temp\PACS00597940.xml$ie.Quit()
+----------------------------------------------------------------------------------------$ie = New-Object -com InternetExplorer.Application$ie.visible=$true$ie.navigate("https://tcsp.temenos.com/Support/Viewticket.aspx?SID=PendingClientConfirmation")$ie.document.getElementById("piechart").IHTMLElement_outerText$ie.document.getElementById("piechart").outerHTML  | Out-File -FilePath D:\Temp\PACS.xml$ie.document.getElementById("piechart").getElementsByTagName('a')
+$data=$ie.document.getElementById("piechart").outerHTML[regex]::Matches($data, '<td.*?>(.+)</td>') | % {$_.Captures[0].Groups[1].value} | Out-File -FilePath D:\Temp\PACS2.html
+
+$ie = New-Object -com InternetExplorer.Application$ie.visible=$true$ie.navigate("https://tcsp.temenos.com/Support/Viewticket.aspx?SID=PendingClientConfirmation")$full = $ie.document.getElementById("piechart").outerhtml$trs = $full -split '<tr'$c = 1foreach ($tr in $trs) {IF ($c -gt 3){    $td = $tr -split '<td'    $pos = $td[2].IndexOf("blank")    $ticket_id = $td[2].Substring($pos+7, 12)    Write-Output $ticket_id    $pos = $td[3].IndexOf("table-td")    $pos2 = $td[3].IndexOf("/td")    $ticket_desc = $td[3].Substring($pos+10, $pos2-$pos-11)    Write-Output $ticket_desc}    $c = $c + 1}
