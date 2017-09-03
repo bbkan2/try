@@ -1,0 +1,22 @@
+import java.math.BigInteger;
+public class MyFirstJavaProgram {
+
+   public static BigInteger fib(int input){
+		BigInteger a = new BigInteger("0");
+		BigInteger b = new BigInteger("1");
+		BigInteger temp = new BigInteger("0");
+		int t = 2;
+		if(input == 0) return BigInteger.ZERO;
+		if(input == 1) return BigInteger.ONE;
+		while(t<input){
+			temp = a;
+			a=b;
+			b=b.add(temp);
+			t++;
+		}
+		return a.add(b);
+	}
+	public static void main(String[] args) {
+		System.out.println(fib(8181));
+	}
+} 
