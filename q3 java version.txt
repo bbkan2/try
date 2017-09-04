@@ -1,0 +1,73 @@
+import java.math.BigInteger;
+
+public class MyFirstJavaProgram {
+
+	public static BigInteger dice(int input) { 
+
+		BigInteger total = new BigInteger("99999999999999999999999999999999999999");
+		BigInteger[] arr = new BigInteger[total.intValue()];
+		BigInteger result = BigInteger.ZERO; 
+		BigInteger two = new BigInteger("2");
+		int i=0; 
+		int j=0; 
+		int k =0; 
+		int temp =0; 
+
+
+		if(input <1){ 
+			return BigInteger.ZERO; 
+		} 
+
+
+		if(input<7){ 
+			return two.pow(input-1);
+		} 
+
+
+		for(i=0;i<input;i++){ 
+			arr[i] = BigInteger.ZERO; 
+		} 
+
+
+		for(i=0;i<6;i++){ 
+			arr[i] = BigInteger.ONE; 
+		} 
+
+
+
+
+		for(i=1; i<input; i++){ 
+		   
+			if((i+1)*6>input) 
+				j = input -1; 
+			else  
+				j = (i+1)*6 -1; 
+			arr[j] = BigInteger.ZERO; 
+
+
+			for(k=0;k<6;k++){ 
+				arr[j] = arr[j].add(arr[j-1-k]); 
+			} 
+
+
+			j--; 
+			while (j>=0) { 
+				if(j>5) 
+					arr[j] = arr[j+1].add(arr[j-6]).subtract(arr[j]); 
+				else 
+					arr[j] = arr[j+1].subtract(arr[j]); 
+				j--; 
+			} 
+
+
+			result = result.add(arr[input-1]); 
+		} 
+
+
+		return result; 
+	} 
+
+	public static void main(String []args) {
+		System.out.println(dice(10));
+	}
+} 
