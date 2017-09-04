@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+
+<head>
+
+
+
+</head>
+
+<html>
+<script src="http://peterolson.github.com/BigInteger.js/BigInteger.min.js"></script>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+
+<body>
+
+<div class="w3-container">
+  <h2>Find dice p()</h2>
+</div>
+
+<div class="w3-row-padding">
+
+<div class="w3-half">
+<label>Num</label>
+<input id="num" class="w3-input w3-border" type="number"  autofocus>
+</div>
+
+<div class="w3-half">
+<label>Result</label>
+<textarea id="result" class="w3-input w3-border" type="text" ></textarea>
+</div>
+<button class="w3-button  w3-blue" style="margin-left:8px"
+ onclick="runIt()">Send</button>
+</div>
+usedTime:
+<div id="usedtime"></div>
+<div id="tes"></div>
+
+<script>
+function dice(input) {
+
+var arr =[];
+var result = bigInt("0");
+var i=0;
+var j=0;
+var k =0;
+var temp =0;
+
+if(input <1){
+  return 0;
+}
+
+if(input<7){
+  return Math.pow(2, input-1) 
+}
+
+for(i=0;i<input;i++){
+  arr[i] = bigInt("0");
+}
+
+for(i=0;i<6;i++){
+  arr[i] = bigInt("1");
+}
+
+
+for(i=1; i<input; i++){
+  
+  if((i+1)*6>input)
+    j = input -1;
+  else 
+    j = (i+1)*6 -1;
+  arr[j] = bigInt("0");
+
+  for(k=0;k<6;k++){
+    arr[j] = arr[j].add(arr[j-1-k]);
+  }
+//  document.getElementById("tes").innerHTML += arr[j]+" ";
+
+  j--;
+  while (j>=0) {
+    if(j>5)
+      arr[j] = arr[j+1].add(arr[j-6]).subtract(arr[j]);
+    else
+      arr[j] = arr[j+1].subtract(arr[j]);
+ // document.getElementById("tes").innerHTML += arr[j]+" ";
+
+    j--;
+  }
+//  document.getElementById("tes").innerHTML += arr[input-1]+"<br />";
+
+  result = result.add(arr[input-1]);
+}
+
+return result;
+}
+
+
+
+function runIt(){
+
+  var tstart = new Date();
+  var tend = new Date();
+  var k = document.getElementById("num").value;
+  tstart = Date.now();
+  document.getElementById("result").value = dice(k);
+  tend = Date.now();
+  document.getElementById("usedtime").innerHTML = tend-tstart;
+
+}
+</script>
+</body>
+</html>
