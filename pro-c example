@@ -1,0 +1,415 @@
+/******************************************************************************
+ * Aim                   : A/C Handling Officers Maintenance Server Functions
+ * Project               : LCH New Generation Banking System
+ * File Name             : cifpc42.pc
+ * Origin Author         :
+ * Creation Date         : 13 JAN 2016
+ * Version Number        : 1.00.00
+ * Compiler              : Metaware High C Compiler R2.3x4
+ * Language used/version : C 92.07.13.13
+ * Testing tools         : N.A.
+ * Modification History  :
+ * Version   Date         By      PCR     Reason
+ * =======   ==========  ======  ======= ======================================
+ * System-wide procedures used :
+ * System-wide functions used  : ggf_char2int();
+ *                               ggf_custchk();
+ *                               ggf_err_handle();
+ *                               ggf_fill_space();
+ *                               ggf_trimcp();
+ ******************************************************************************/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <signal.h>
+#include <sys/types.h>
+#include "tp_csi.h"
+#include "aptm.h"
+
+#include "common/common.h"
+#include "common/msgid.h"
+#include "cif/cifcomm.h"
+#include "cif/cifps42.h"
+
+#define MAX_NO_OF_ROW 50
+#define JOIN_AC  '*'
+#define SOLE_AC  ' '
+#define ACC_TYPE_DESC_LEN 3
+#define ACCOUNT_TYPE_LEN 2
+
+
+/***************************************
+ * Global Variables Declaration        *
+ ***************************************/
+ipm_header_t  *gv_header;
+char          *gv_errmsg;
+
+
+am01mnt_in_t      *gv_am01mnt_in;
+am01mnt_out_t     *gv_am01mnt_out;
+
+
+/*************************
+ * Functions Declaration *
+ *************************/
+
+
+extern int  gf_am01mnt(ipm_header_t *, int, char *, int *, char *);
+static void assign_am01mnt();
+static void hash_am01mnt();
+static int  db_am01mnt();
+
+static int  sql_insert();
+static int  sql_get_seq_no();
+static int  sql_doc_no_check();
+static int  sql_ac_no_check();
+static int  sql_ledger_check();
+static int  sql_maturity_check();
+
+/*****************************
+ * Host Variable Declaration *
+ *****************************/
+exec sql begin declare section;
+
+  VARCHAR db_seq_no[10];
+  VARCHAR db_maker_id[10];
+  VARCHAR db_system_type[3];
+  VARCHAR db_account_no[15];
+  VARCHAR db_document_no[11];
+  VARCHAR db_issue_no[5];
+  VARCHAR db_tenor[4];
+  VARCHAR db_maturity_date[9];
+  VARCHAR db_fcy_code[3];
+  VARCHAR db_amortize_amt[17];
+  VARCHAR db_debit_credit[2];
+  VARCHAR db_ledger_code[7];
+  int existence_ac = 0;
+  int existence_doc = 0;
+  int existence_ledger = 0;
+  int existence_maturity = 0;
+
+exec sql end declare section;
+
+exec sql include  sqlca;
+exec sql whenever sqlerror goto quit;
+
+/************************************************************************
+ * Function Name :      gf_am01mnt                                      *
+ * Purpose :            Initialize and finialize environment for        *
+ *                      retrieving policies of a customer               *
+ * Arguments :          IPM header structure variable                   *
+ *                      Message Data length                             *
+ *                      Return Message Data to be sent                  *
+ *                      Return ACS code if required                     *
+ *                      Return ACS Argument List if required            *
+ * Returns :            Length of the message data to be sent           *
+ ************************************************************************/
+int  gf_am01mnt(ipm_header_t *header, int msg_len, char *msg, int *acs_code,
+                char* acs_msg)
+{
+    int err_code;
+    gv_am01mnt_in  = (am01mnt_in_t *)  msg;
+    gv_am01mnt_out = (am01mnt_out_t *) msg;
+    gv_header      = header;
+    gv_errmsg      = msg;
+    memcpy(gv_header->return_code, RC_OK, GGC_RETURN_CD_LEN);
+
+    if (msg_len != sizeof(am01mnt_in_t))
+    {
+        memcpy(gv_header->return_code, RC_NOTOK_AT_1, GGC_RETURN_CD_LEN);
+        return (ggf_err_handle(INVALID_MSG_LEN, acs_code, acs_msg));
+    }
+    if ((err_code = db_am01mnt()) == SUCC)
+        return (sizeof(am01mnt_out_t));
+    else
+    {
+      if (err_code == 791)
+        memcpy(gv_header->return_code, RC_NOTFOUND_AT_1, GGC_RETURN_CD_LEN);
+      else if (err_code == 2412)
+        memcpy(gv_header->return_code, RC_NOTFOUND_AT_1, GGC_RETURN_CD_LEN);
+      else if (err_code == 7233)
+        memcpy(gv_header->return_code, RC_NOTOK_AT_1, GGC_RETURN_CD_LEN);
+      else if (err_code == 1463)
+        memcpy(gv_header->return_code, RC_NOTFOUND_AT_1, GGC_RETURN_CD_LEN);
+      else
+        memcpy(gv_header->return_code, RC_NOTOK_AT_1, GGC_RETURN_CD_LEN);
+      return (ggf_err_handle(err_code, acs_code, acs_msg));
+    }
+}
+
+/************************************************************************
+ * Function Name :      db_am01mnt                                      *
+ * Purpose :            Main Module for retrieve policies of a customer *
+ * Arguments :                                                          *
+ * Returns :            Return SUCC if Success                          *
+ *                             FAIL if Other Error                      *
+ ************************************************************************/
+static
+int  db_am01mnt()
+{
+    int  err_code;
+    int i;
+    assign_am01mnt();
+    sql_get_seq_no();
+    if (sql_ac_no_check() == FAIL) return (791);
+    if (!memcmp(db_system_type.arr, "BIL", 3))
+    {
+        if (sql_doc_no_check() == FAIL) return (2412);
+    }
+    if (sql_maturity_check() == FAIL) return (7233);
+    if (sql_ledger_check() == FAIL) return (1463);
+    /*if (!memcmp(db_seq_no.arr, "1031", 4)) return (FAIL);*/
+    
+    if (sql_insert() == FAIL) return (FAIL);
+
+    hash_am01mnt();
+    return (SUCC);
+}
+
+
+/************************************************************************
+ * Function Name : assign_am01mnt                                       *
+ * Purpose       : Assign to program variable from message data for     *
+ *                 function to retrieve list of policies of a customer  *
+ * Arguments     : Return Block no.                                     *
+ * Returns       : None                                                 *
+ ************************************************************************/
+static
+void assign_am01mnt()
+{
+   db_maker_id.len = ggf_trimcp(db_maker_id.arr, gv_header->originator.user_id,
+      GGC_USER_ID_LEN);
+   db_system_type.len = ggf_trimcp(db_system_type.arr, gv_am01mnt_in->system_type,
+                                       SYSTEM_TYPE_LEN);
+   db_account_no.len = ggf_trimcp(db_account_no.arr, gv_am01mnt_in->account_no,
+                                       ACCOUNT_NO_LEN_2);
+   db_document_no.len = ggf_trimcp(db_document_no.arr, gv_am01mnt_in->document_no,
+                                       DOCUMENT_NO_LEN);
+   db_issue_no.len = ggf_trimcp(db_issue_no.arr, gv_am01mnt_in->issue_no,
+                                       ISSUE_NO_LEN);
+   db_tenor.len = ggf_trimcp(db_tenor.arr, gv_am01mnt_in->tenor,
+                                       TENOR_LEN);
+   db_maturity_date.len = ggf_trimcp(db_maturity_date.arr, gv_am01mnt_in->maturity_date,
+                                       MATURITY_DATE_LEN);
+   db_fcy_code.len = ggf_trimcp(db_fcy_code.arr, gv_am01mnt_in->fcy_code,
+                                       FCY_CODE_LEN);
+   db_amortize_amt.len = ggf_trimcp(db_amortize_amt.arr, gv_am01mnt_in->amortize_amt,
+                                       AMORTIZE_AMT_LEN);
+   db_debit_credit.len = ggf_trimcp(db_debit_credit.arr, gv_am01mnt_in->debit_credit,
+                                       DEBIT_CREDIT_LEN);
+   db_ledger_code.len = ggf_trimcp(db_ledger_code.arr, gv_am01mnt_in->ledger_code,
+                                       LEDGER_CODE_LEN);
+}
+
+
+/************************************************************************
+ * Function Name : sql_get_seq_no                                   *
+ * Purpose       : SQL Language for selecting customer columns from     *
+ *                 CUSTOMERS by customer id.                            *
+ * Arguments     : None                                                 *
+ * Returns       : SUCC if Success                                      *
+ *                 FAIL if Fail                                         *
+ ************************************************************************/
+static
+int sql_get_seq_no()
+{
+   exec sql select NVL(MAX(ca_seq_no),0) + 1
+              into :db_seq_no
+              from cif_amortization;
+   return (SUCC);
+
+quit:
+   return (FAIL);
+}
+
+
+/************************************************************************
+ * Function Name : sql_insert                                           *
+ * Purpose       : SQL language to insert new amortization              *
+ *                                                                      *
+ * Arguments     : None                                                 *
+ * Returns       : SUCC if Success                                      *
+ *                 FAIL if Fail                                         *
+ ************************************************************************/
+
+static
+int sql_insert()
+{
+    
+    EXEC SQL EXECUTE
+    BEGIN
+        insert into CIF_AMORTIZATION 
+            (CA_SEQ_NO, 
+            CA_INPUT_DATE, 
+            CA_INPUT_EMP_ID, 
+            CA_SYS_TYPE, 
+            CA_ACCOUNT_NO, 
+            CA_DOCUMENT_NO, 
+            CA_ISSUE_NO, 
+            CA_TENOR, 
+            CA_MATURITY_DATE, 
+            CA_FCY_CODE, 
+            CA_AMORTIZE_AMT, 
+            CA_DEBIT_CREDIT, 
+            CA_LEDGER_CODE) 
+        values (:db_seq_no, 
+            to_date(to_char(sysdate, 'fmDDMONYYYY'), 'DDMONYYYY'), 
+            :db_maker_id, 
+            :db_system_type, 
+            :db_account_no, 
+            replace(replace(:db_document_no,'-'), ' '), 
+            :db_issue_no, 
+            :db_tenor, 
+            to_date(:db_maturity_date, 'DDMONYYYY'), 
+            :db_fcy_code, 
+            to_number(:db_amortize_amt), 
+            :db_debit_credit, 
+            replace(:db_ledger_code,'-'));
+            
+           commit;
+    END;
+    END-EXEC;
+    fprintf(stderr,"End insert Pakco");
+   return (SUCC);
+
+quit:
+   return (FAIL);
+}
+
+/************************************************************************
+ * Function Name : sql_ac_no_check                                     *
+ * Purpose       : SQL language to check existence_ac of account no     *
+ *                                                                      *
+ * Arguments     : None                                                 *
+ * Returns       : SUCC if Success                                      *
+ *                 FAIL if Fail                                         *
+ ************************************************************************/
+
+static
+int sql_ac_no_check()
+{
+    existence_ac = 0;
+    exec sql select 1 
+             into :existence_ac 
+             from dual 
+             where exists (select 1 
+             from account_owners
+             where AO_ACCOUNT_NO = :db_account_no);
+    fprintf(stderr,"ac no issssssssssssssss");
+    fprintf(stderr,existence_ac);
+    fprintf(stderr," !!!");
+    if (existence_ac != 1) goto quit;
+    
+   return (SUCC);
+
+quit:
+   return (FAIL);
+}
+
+/************************************************************************
+ * Function Name : sql_doc_no_check                                     *
+ * Purpose       : SQL language to check existence_doc of document no       *
+ *                                                                      *
+ * Arguments     : None                                                 *
+ * Returns       : SUCC if Success                                      *
+ *                 FAIL if Fail                                         *
+ ************************************************************************/
+
+static
+int sql_doc_no_check()
+{
+    existence_doc = 0;
+    exec sql select 1 
+             into :existence_doc 
+             from dual 
+             where exists (select 1 
+             from BILLS_PURCHASES
+             where BP_NO like substr(replace(:db_document_no,'-'),1,8)||'%');
+    fprintf(stderr,"doc no issssssssssssssss");
+    fprintf(stderr,existence_doc);
+    fprintf(stderr," !!!");
+    if (existence_doc != 1) goto quit;
+    
+   return (SUCC);
+
+quit:
+   return (FAIL);
+}
+
+/************************************************************************
+ * Function Name : sql_maturity_check                                     *
+ * Purpose       : SQL language to check existence_doc of document no       *
+ *                                                                      *
+ * Arguments     : None                                                 *
+ * Returns       : SUCC if Success                                      *
+ *                 FAIL if Fail                                         *
+ ************************************************************************/
+
+static
+int sql_maturity_check()
+{
+    existence_maturity = 0;
+    exec sql select 1 
+             into :existence_maturity 
+             from dual 
+             where to_date(:db_maturity_date, 'DDMONYYYY') > sysdate;
+    fprintf(stderr,"ledger issssssssssssssss");
+    fprintf(stderr,existence_maturity);
+    fprintf(stderr," !!!");
+    if (existence_maturity != 1) goto quit;
+    
+   return (SUCC);
+
+quit:
+   return (FAIL);
+}
+
+/************************************************************************
+ * Function Name : sql_ledger_check                                     *
+ * Purpose       : SQL language to check existence_doc of document no       *
+ *                                                                      *
+ * Arguments     : None                                                 *
+ * Returns       : SUCC if Success                                      *
+ *                 FAIL if Fail                                         *
+ ************************************************************************/
+
+static
+int sql_ledger_check()
+{
+    existence_ledger = 0;
+    exec sql select 1 
+             into :existence_ledger 
+             from dual 
+             where exists (select 1 
+             from SGL_CHART_OF_ACCOUNTS 
+             where  SLCA_LEDGER_CODE = rtrim(replace(:db_ledger_code,'-')) 
+             and    SLCA_NOSTRO_INPUT_IND = 'Y');
+    fprintf(stderr,"ledger issssssssssssssss");
+    fprintf(stderr,existence_ledger);
+    fprintf(stderr," !!!");
+    if (existence_ledger != 1) goto quit;
+    
+   return (SUCC);
+
+quit:
+   return (FAIL);
+}
+
+/************************************************************************
+ * Function Name : hash_am01mnt                                         *
+ * Purpose       : Assign to message data from program variable for     *
+ *                 function to retrieve  life insurance policies        *
+ * Arguments     : Record no.                                           *
+ * Returns       : None                                                 *
+ ************************************************************************/
+ 
+static
+void hash_am01mnt ()
+{
+
+    ggf_fill_space(gv_am01mnt_out->message, MESSAGE_LEN,
+                "INSERT SUCCESSFULLY", 19);
+
+}
